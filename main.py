@@ -275,6 +275,23 @@ def detect_offset(client) -> int:
     return offset
 
 
+def _acquire_single_instance(port: int = 59321):
+    """Lock anti-doppione: prova a riservare una porta locale. Se fallisce, un
+    altro bot (--live/--watch) e' gia' in esecuzione. Ritorna il socket (da
+    tenere vivo per tutta la durata) oppure None se gia' attivo altrove.
+    Si libera da solo alla chiusura del processo (niente lock-file rimasti)."""
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
+    try:
+        s.bind(("127.0.0.1", port))
+        s.listen(1)
+        return s
+    except OSError:
+        s.close()
+        return None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="FX Multi-Regime: analisi e segnali da MT5.")
     parser.add_argument("--watch", action="store_true",
@@ -294,6 +311,16 @@ def main() -> None:
 
     live_mode = args.live
     auto_execute = config.AUTO_EXECUTE or live_mode
+
+    # Anti-doppione: un solo bot continuo per volta (evita ordini duplicati).
+    _lock = None
+    if live_mode or args.watch:
+        _lock = _acquire_single_instance()
+        if _lock is None:
+            raise SystemExit(
+                "ERRORE: un altro bot (--live/--watch) e' GIA' in esecuzione.\n"
+                "Chiudi prima quello attivo (Ctrl+C nella sua finestra) per evitare "
+                "ordini doppi. Avvio annullato.")
 
     strategies = build_strategies(active_modules=None)  # una per simbolo, params ottimizzati se presenti
     executor = (Mt5Executor(magic=config.MAGIC, deviation=config.DEVIATION)
