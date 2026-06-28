@@ -1,0 +1,58 @@
+{
+  "symbol": "USDCHF",
+  "years": 8.0,
+  "folds": 3,
+  "in_sample": [
+    {
+      "num_trades": 61,
+      "pf": 1.577,
+      "win_rate": 0.475,
+      "total_r": 17.77,
+      "sharpe": 11.07,
+      "max_dd_r": 7.93
+    },
+    {
+      "num_trades": 100,
+      "pf": 1.04,
+      "win_rate": 0.19,
+      "total_r": 3.21,
+      "sharpe": 0.96,
+      "max_dd_r": 19.29
+    },
+    {
+      "num_trades": 148,
+      "pf": 1.355,
+      "win_rate": 0.297,
+      "total_r": 36.66,
+      "sharpe": 7.93,
+      "max_dd_r": 13.0
+    }
+  ],
+  "out_of_sample": [
+    {
+      "num_trades": 58,
+      "pf": 0.931,
+      "win_rate": 0.362,
+      "total_r": -2.47,
+      "sharpe": -1.86,
+      "max_dd_r": 14.24
+    },
+    {
+      "num_trades": 48,
+      "pf": 1.853,
+      "win_rate": 0.292,
+      "total_r": 29.0,
+      "sharpe": 15.35,
+      "max_dd_r": 9.0
+    },
+    {
+      "num_trades": 48,
+      "pf": 1.028,
+      "win_rate": 0.271,
+      "total_r": 0.94,
+      "sharpe": 0.72,
+      "max_dd_r": 10.11
+    }
+  ],
+  "timestamp": "2026-06-27T15:19:47.396950"
+}

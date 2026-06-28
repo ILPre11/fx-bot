@@ -48,13 +48,26 @@ RISK_PROFILE: str = "ultra_aggressive_5k"   # <-- profilo attivo (metti "base" p
 
 _PROFILE = RISK_PROFILES[RISK_PROFILE]
 
-# --- Coppia attiva -----------------------------------------------------------
-# Il progetto lavora UNA coppia per volta: ottimizzazione, segnali e trading
-# sono tutti focalizzati su questa coppia. Per cambiare coppia basta modificare
-# PAIR qui sotto (deve esistere come simbolo nel broker) e rilanciare
-# l'ottimizzatore su di essa. Per tornare al multi-coppia: SYMBOLS = _PROFILE["symbols"].
-PAIR: str = "EURJPY"
-SYMBOLS: list[str] = [PAIR]
+# --- Strategie VALIDATE da operare sul demo ---------------------------------
+# Mappa coppia -> moduli attivi. Una strategia = coppia + modulo/i + parametri
+# DEFAULT (validati walk-forward). NIENTE ottimizzazione: è stato verificato che
+# ottimizzare peggiora l'out-of-sample. Moduli validi: "trend","vol","meanrev","asia".
+VALIDATED_STRATEGIES: dict[str, list[str]] = {
+    "NZDUSD": ["trend"],   # NZDUSD Trend  (WF 3/3, plateau parametri, 7/9 anni)
+    "USDJPY": ["vol"],     # USDJPY VOL    (WF 3/3, plateau parametri, 6/9 anni)
+}
+SYMBOLS: list[str] = list(VALIDATED_STRATEGIES)
+PAIR: str = SYMBOLS[0]   # default per gli script di ottimizzazione (--symbol)
+
+# Modello di USCITA validato nel backtest: TP a R:R fisso + time-stop (barre H1).
+# Va applicato anche al live, altrimenti la strategia non replica ciò che è stato
+# validato (di default non mette nè TP nè time-stop).
+EXIT_RR: float = 2.0
+EXIT_MAX_BARS: int = 120
+
+# Re-ottimizzazione notturna dei moduli: DISATTIVATA. Operiamo strategie validate
+# fisse, non la selezione automatica dei moduli (approccio superato).
+LIVE_NIGHTLY_REOPTIMIZE: bool = False
 
 RISK_TREND_PCT: float = _PROFILE["risk_trend_pct"]
 RISK_ASIA_PCT: float = _PROFILE["risk_asia_pct"]

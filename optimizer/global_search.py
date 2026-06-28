@@ -176,7 +176,9 @@ def local_optimize(ev: Evaluator, vector: dict, score: float, log):
 def perturb(vector: dict) -> dict:
     """Calcio casuale: sposta un sottoinsieme di parametri di +/- alcuni step."""
     cand = dict(vector)
-    names = random.sample(list(SPACE), k=random.randint(3, 8))
+    n = len(SPACE)
+    k = random.randint(min(3, n), min(8, n))  # robusto anche con spazio ristretto
+    names = random.sample(list(SPACE), k=k)
     for name in names:
         lo, hi, step, is_int = SPACE[name]
         kick = random.choice([-3, -2, -1, 1, 2, 3]) * step

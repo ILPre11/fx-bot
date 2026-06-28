@@ -28,11 +28,15 @@ from forex_bot.strategies.fx_multi_regime import FxMultiRegimeStrategy
 from forex_bot.telegram import TelegramNotifier
 
 
+_MODULE_FLAGS = {"trend": "use_trend", "vol": "use_vol",
+                 "meanrev": "use_mean_rev", "asia": "use_asia"}
+
+
 def build_strategies(active_modules: dict[int, list[str]] | None = None
                      ) -> dict[str, FxMultiRegimeStrategy]:
-    """Una strategia per simbolo: applica i parametri OTTIMIZZATI se presenti
-    (optimizer/best_params_<SYMBOL>.json), altrimenti usa i default."""
-    from forex_bot.live_params import load_optimized
+    """Una strategia per simbolo: attiva SOLO i moduli VALIDATI per quella coppia
+    (config.VALIDATED_STRATEGIES), con parametri DEFAULT + modello di uscita
+    validato (TP a R:R + time-stop). Niente parametri ottimizzati (overfit)."""
     strategies: dict[str, FxMultiRegimeStrategy] = {}
     for symbol in config.SYMBOLS:
         s = FxMultiRegimeStrategy(
@@ -41,10 +45,16 @@ def build_strategies(active_modules: dict[int, list[str]] | None = None
             risk_vol_pct=config.RISK_VOL_PCT,
             risk_mean_pct=config.RISK_MEAN_PCT,
         )
-        opt = load_optimized(symbol)
-        if opt:
-            s.apply_optimized(opt)
-        s._active_modules = active_modules  # None = tutti attivi (modalita' segnali)
+        # attiva solo i moduli validati per questa coppia
+        active = config.VALIDATED_STRATEGIES.get(symbol)
+        if active is not None:
+            s.use_trend = s.use_mean_rev = s.use_vol = s.use_asia = False
+            for m in active:
+                setattr(s, _MODULE_FLAGS[m], True)
+        # modello di uscita validato (altrimenti niente TP/time-stop)
+        s.rr = config.EXIT_RR
+        s.max_bars_open = config.EXIT_MAX_BARS
+        s._active_modules = active_modules
         strategies[symbol] = s
     return strategies
 
@@ -144,8 +154,8 @@ def watch(client, strategies, executor, offset, interval, max_cycles=0, notifier
             cycle += 1
             acc = client.account()
 
-            # ---- re-ottimizzazione notturna (solo --live) --------------------
-            if live_mode:
+            # ---- re-ottimizzazione notturna (solo --live, se abilitata) ------
+            if live_mode and config.LIVE_NIGHTLY_REOPTIMIZE:
                 today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
                 now_hour = datetime.now(timezone.utc).hour
                 if today_utc != last_optimizer_date and now_hour >= config.LIVE_OPTIMIZER_HOUR:
@@ -302,17 +312,12 @@ def main() -> None:
                   f"{acc.currency}  |  strategia: fx_multi_regime  |  profilo: {config.RISK_PROFILE}"
                   f"  |  modalita': {mode_label}\n")
 
-            # Mostra quali simboli usano i parametri OTTIMIZZATI
-            from forex_bot.live_params import optimized_summary
-            opt_syms = [s for s in config.SYMBOLS if optimized_summary(s)]
-            if opt_syms:
-                print("Parametri OTTIMIZZATI attivi per:")
-                for s in opt_syms:
-                    print(f"  - {optimized_summary(s)}")
-                others = [s for s in config.SYMBOLS if s not in opt_syms]
-                if others:
-                    print(f"  (default per: {', '.join(others)})")
-                print()
+            # Mostra le strategie validate attive (modulo per coppia, params default)
+            print("Strategie VALIDATE attive (parametri default + uscita R:R "
+                  f"{config.EXIT_RR:.1f} / time-stop {config.EXIT_MAX_BARS} barre):")
+            for sym, mods in config.VALIDATED_STRATEGIES.items():
+                print(f"  - {sym}: {', '.join(m.upper() for m in mods)}")
+            print()
 
             if auto_execute and not client.is_demo():
                 print("ATTENZIONE: esecuzione automatica attiva ma conto NON demo. "
@@ -324,15 +329,17 @@ def main() -> None:
                 print(f"  - Portfolio risk: DD giornaliero -{config.PORTFOLIO_MAX_DAILY_DD:.0%}, "
                       f"max {config.PORTFOLIO_MAX_POSITIONS} posizioni, "
                       f"Friday cutoff ore {config.PORTFOLIO_FRIDAY_CUTOFF_HOUR} UTC")
-                print(f"  - Re-ottimizzazione: ogni notte alle {config.LIVE_OPTIMIZER_HOUR:02d}:00 UTC")
-                print(f"  - Criteri selezione: PF≥1.5, min 15 trade")
-                print("\nAvvio prima ottimizzazione (potrebbe richiedere qualche minuto)...")
-                from optimizer.run_optimizer import run_optimizer
-                active_modules = run_optimizer(client)
-                for _s in strategies.values():
-                    _s._active_modules = active_modules
-                if notifier:
-                    _notify_optimizer(notifier, active_modules)
+                if config.LIVE_NIGHTLY_REOPTIMIZE:
+                    print(f"  - Re-ottimizzazione: ogni notte alle {config.LIVE_OPTIMIZER_HOUR:02d}:00 UTC")
+                    print("\nAvvio prima ottimizzazione (potrebbe richiedere qualche minuto)...")
+                    from optimizer.run_optimizer import run_optimizer
+                    active_modules = run_optimizer(client)
+                    for _s in strategies.values():
+                        _s._active_modules = active_modules
+                    if notifier:
+                        _notify_optimizer(notifier, active_modules)
+                else:
+                    print("  - Strategie validate FISSE (nessuna re-ottimizzazione)")
                 print()
 
             offset = detect_offset(client)

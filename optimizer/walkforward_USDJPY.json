@@ -1,0 +1,58 @@
+{
+  "symbol": "USDJPY",
+  "years": 8.0,
+  "folds": 3,
+  "in_sample": [
+    {
+      "num_trades": 41,
+      "pf": 1.638,
+      "win_rate": 0.317,
+      "total_r": 17.85,
+      "sharpe": 11.87,
+      "max_dd_r": 7.4
+    },
+    {
+      "num_trades": 163,
+      "pf": 1.514,
+      "win_rate": 0.282,
+      "total_r": 60.15,
+      "sharpe": 10.63,
+      "max_dd_r": 12.0
+    },
+    {
+      "num_trades": 158,
+      "pf": 1.927,
+      "win_rate": 0.437,
+      "total_r": 78.38,
+      "sharpe": 17.65,
+      "max_dd_r": 10.71
+    }
+  ],
+  "out_of_sample": [
+    {
+      "num_trades": 46,
+      "pf": 1.485,
+      "win_rate": 0.283,
+      "total_r": 16.02,
+      "sharpe": 9.41,
+      "max_dd_r": 15.05
+    },
+    {
+      "num_trades": 80,
+      "pf": 1.199,
+      "win_rate": 0.237,
+      "total_r": 12.16,
+      "sharpe": 4.65,
+      "max_dd_r": 20.0
+    },
+    {
+      "num_trades": 52,
+      "pf": 1.935,
+      "win_rate": 0.442,
+      "total_r": 25.12,
+      "sharpe": 17.31,
+      "max_dd_r": 5.64
+    }
+  ],
+  "timestamp": "2026-06-27T15:10:12.387933"
+}

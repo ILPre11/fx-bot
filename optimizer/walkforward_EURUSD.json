@@ -1,0 +1,58 @@
+{
+  "symbol": "EURUSD",
+  "years": 8.0,
+  "folds": 3,
+  "in_sample": [
+    {
+      "num_trades": 17,
+      "pf": 5.625,
+      "win_rate": 0.529,
+      "total_r": 37.0,
+      "sharpe": 46.15,
+      "max_dd_r": 2.0
+    },
+    {
+      "num_trades": 87,
+      "pf": 1.968,
+      "win_rate": 0.287,
+      "total_r": 60.03,
+      "sharpe": 16.35,
+      "max_dd_r": 11.0
+    },
+    {
+      "num_trades": 160,
+      "pf": 1.922,
+      "win_rate": 0.338,
+      "total_r": 96.88,
+      "sharpe": 15.88,
+      "max_dd_r": 11.1
+    }
+  ],
+  "out_of_sample": [
+    {
+      "num_trades": 21,
+      "pf": 2.327,
+      "win_rate": 0.333,
+      "total_r": 18.58,
+      "sharpe": 20.74,
+      "max_dd_r": 5.0
+    },
+    {
+      "num_trades": 49,
+      "pf": 1.622,
+      "win_rate": 0.245,
+      "total_r": 23.0,
+      "sharpe": 11.55,
+      "max_dd_r": 11.0
+    },
+    {
+      "num_trades": 43,
+      "pf": 2.131,
+      "win_rate": 0.395,
+      "total_r": 29.41,
+      "sharpe": 18.59,
+      "max_dd_r": 7.73
+    }
+  ],
+  "timestamp": "2026-06-27T15:24:37.500108"
+}

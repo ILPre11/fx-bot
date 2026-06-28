@@ -401,15 +401,23 @@ def _simulate_exit(pc, entry_idx, side, entry, sl, rr, max_bars):
     return float(pnl), max_bars
 
 
-def evaluate(pc: Precomputed, params: dict, modules=(1, 2, 3, 4)) -> dict:
-    """Esegue il backtest veloce e ritorna le statistiche."""
+def evaluate(pc: Precomputed, params: dict, modules=(1, 2, 3, 4),
+             lo: int | None = None, hi: int | None = None) -> dict:
+    """Esegue il backtest veloce e ritorna le statistiche.
+
+    lo/hi: limitano l'intervallo di INGRESSO (indice barra H1) -> servono per il
+    walk-forward (ottimizza su una fetta, testa su un'altra). Gli indicatori
+    restano calcolati su tutta la storia continua, quindi al confine sono "caldi".
+    """
     p = {**DEFAULT_PARAMS, **params}
     max_bars = int(p["max_bars_open"])
     rr = p["rr"]
     pnls: list[float] = []
     open_until = -1
 
-    for i in range(pc.start, pc.n - 2):
+    start = pc.start if lo is None else max(pc.start, lo)
+    end = (pc.n - 2) if hi is None else min(pc.n - 2, hi)
+    for i in range(start, end):
         if i <= open_until:
             continue
         m = pc.h4_idx[i]
@@ -429,6 +437,38 @@ def evaluate(pc: Precomputed, params: dict, modules=(1, 2, 3, 4)) -> dict:
         open_until = i + bars
 
     return _stats(pnls)
+
+
+def collect_trades(pc: Precomputed, params: dict, modules=(1, 2, 3, 4),
+                   lo: int | None = None, hi: int | None = None) -> list[dict]:
+    """Come evaluate ma ritorna i SINGOLI trade: {idx, side, pnl, m} (per analisi
+    per anno / per regime). idx = barra H1 di ingresso, m = indice H4 corrente."""
+    p = {**DEFAULT_PARAMS, **params}
+    max_bars = int(p["max_bars_open"])
+    rr = p["rr"]
+    trades: list[dict] = []
+    open_until = -1
+    start = pc.start if lo is None else max(pc.start, lo)
+    end = (pc.n - 2) if hi is None else min(pc.n - 2, hi)
+    for i in range(start, end):
+        if i <= open_until:
+            continue
+        m = pc.h4_idx[i]
+        if m < 7:
+            continue
+        candidates = {}
+        for mod in modules:
+            sig = _MODULE_FN[mod](pc, i, m, p)
+            if sig is not None:
+                candidates[mod] = sig
+        chosen = _choose(candidates)
+        if chosen is None:
+            continue
+        side, entry, sl = chosen
+        pnl, bars = _simulate_exit(pc, i, side, entry, sl, rr, max_bars)
+        trades.append({"idx": i, "side": side, "pnl": pnl, "m": m})
+        open_until = i + bars
+    return trades
 
 
 def _stats(pnls: list[float]) -> dict:
