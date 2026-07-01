@@ -1,0 +1,85 @@
+{
+  "symbol": "USDJPY",
+  "modules": "vol",
+  "years": 8.0,
+  "folds": 3,
+  "default_out_of_sample": [
+    {
+      "num_trades": 40,
+      "pf": 1.636,
+      "win_rate": 0.45,
+      "total_r": 14.0,
+      "sharpe": 14.89,
+      "max_dd_r": 7.0
+    },
+    {
+      "num_trades": 42,
+      "pf": 1.36,
+      "win_rate": 0.405,
+      "total_r": 9.0,
+      "sharpe": 9.24,
+      "max_dd_r": 5.0
+    },
+    {
+      "num_trades": 43,
+      "pf": 1.44,
+      "win_rate": 0.419,
+      "total_r": 11.0,
+      "sharpe": 10.98,
+      "max_dd_r": 5.0
+    }
+  ],
+  "in_sample": [
+    {
+      "num_trades": 46,
+      "pf": 1.312,
+      "win_rate": 0.304,
+      "total_r": 10.0,
+      "sharpe": 7.5,
+      "max_dd_r": 6.0
+    },
+    {
+      "num_trades": 101,
+      "pf": 1.699,
+      "win_rate": 0.327,
+      "total_r": 47.5,
+      "sharpe": 14.15,
+      "max_dd_r": 10.0
+    },
+    {
+      "num_trades": 145,
+      "pf": 1.83,
+      "win_rate": 0.421,
+      "total_r": 68.97,
+      "sharpe": 17.02,
+      "max_dd_r": 6.26
+    }
+  ],
+  "out_of_sample": [
+    {
+      "num_trades": 47,
+      "pf": 2.423,
+      "win_rate": 0.447,
+      "total_r": 37.0,
+      "sharpe": 25.14,
+      "max_dd_r": 4.0
+    },
+    {
+      "num_trades": 49,
+      "pf": 1.697,
+      "win_rate": 0.327,
+      "total_r": 23.0,
+      "sharpe": 14.12,
+      "max_dd_r": 7.0
+    },
+    {
+      "num_trades": 48,
+      "pf": 1.848,
+      "win_rate": 0.417,
+      "total_r": 23.74,
+      "sharpe": 17.38,
+      "max_dd_r": 6.25
+    }
+  ],
+  "timestamp": "2026-07-01T10:19:45.955883"
+}

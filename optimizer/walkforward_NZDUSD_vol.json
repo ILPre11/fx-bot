@@ -1,0 +1,85 @@
+{
+  "symbol": "NZDUSD",
+  "modules": "vol",
+  "years": 8.0,
+  "folds": 3,
+  "default_out_of_sample": [
+    {
+      "num_trades": 35,
+      "pf": 1.333,
+      "win_rate": 0.4,
+      "total_r": 7.0,
+      "sharpe": 8.64,
+      "max_dd_r": 7.0
+    },
+    {
+      "num_trades": 31,
+      "pf": 1.263,
+      "win_rate": 0.387,
+      "total_r": 5.0,
+      "sharpe": 7.01,
+      "max_dd_r": 4.0
+    },
+    {
+      "num_trades": 29,
+      "pf": 1.412,
+      "win_rate": 0.414,
+      "total_r": 7.0,
+      "sharpe": 10.37,
+      "max_dd_r": 7.0
+    }
+  ],
+  "in_sample": [
+    {
+      "num_trades": 37,
+      "pf": 2.059,
+      "win_rate": 0.541,
+      "total_r": 18.0,
+      "sharpe": 22.54,
+      "max_dd_r": 3.25
+    },
+    {
+      "num_trades": 83,
+      "pf": 1.708,
+      "win_rate": 0.494,
+      "total_r": 29.75,
+      "sharpe": 16.55,
+      "max_dd_r": 7.25
+    },
+    {
+      "num_trades": 129,
+      "pf": 1.57,
+      "win_rate": 0.473,
+      "total_r": 38.75,
+      "sharpe": 13.89,
+      "max_dd_r": 7.25
+    }
+  ],
+  "out_of_sample": [
+    {
+      "num_trades": 49,
+      "pf": 1.426,
+      "win_rate": 0.449,
+      "total_r": 11.5,
+      "sharpe": 10.9,
+      "max_dd_r": 7.25
+    },
+    {
+      "num_trades": 37,
+      "pf": 1.193,
+      "win_rate": 0.405,
+      "total_r": 4.25,
+      "sharpe": 5.4,
+      "max_dd_r": 4.25
+    },
+    {
+      "num_trades": 38,
+      "pf": 1.141,
+      "win_rate": 0.395,
+      "total_r": 3.25,
+      "sharpe": 4.04,
+      "max_dd_r": 6.0
+    }
+  ],
+  "timestamp": "2026-07-01T10:13:53.648560"
+}

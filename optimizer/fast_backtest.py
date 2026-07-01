@@ -365,7 +365,10 @@ _MODULE_FN = {
 
 
 def _choose(candidates: dict):
-    """Replica ChooseSignal: niente conflitti, priorità. (Il rischio non conta in R.)"""
+    """Replica ChooseSignal: niente conflitti, priorità. (Il rischio non conta in R.)
+
+    Ritorna (mod_id, signal) del modulo scelto, o None se nessun segnale/conflitto.
+    """
     if not candidates:
         return None
     sides = {c[0] for c in candidates.values()}
@@ -373,7 +376,7 @@ def _choose(candidates: dict):
         return None
     for mod in PRIORITY:
         if mod in candidates:
-            return candidates[mod]
+            return mod, candidates[mod]
     return None
 
 
@@ -431,7 +434,7 @@ def evaluate(pc: Precomputed, params: dict, modules=(1, 2, 3, 4),
         chosen = _choose(candidates)
         if chosen is None:
             continue
-        side, entry, sl = chosen
+        _mod, (side, entry, sl) = chosen
         pnl, bars = _simulate_exit(pc, i, side, entry, sl, rr, max_bars)
         pnls.append(pnl)
         open_until = i + bars
@@ -464,9 +467,9 @@ def collect_trades(pc: Precomputed, params: dict, modules=(1, 2, 3, 4),
         chosen = _choose(candidates)
         if chosen is None:
             continue
-        side, entry, sl = chosen
+        mod, (side, entry, sl) = chosen
         pnl, bars = _simulate_exit(pc, i, side, entry, sl, rr, max_bars)
-        trades.append({"idx": i, "side": side, "pnl": pnl, "m": m})
+        trades.append({"idx": i, "side": side, "pnl": pnl, "m": m, "mod": mod, "bars": bars})
         open_until = i + bars
     return trades
 

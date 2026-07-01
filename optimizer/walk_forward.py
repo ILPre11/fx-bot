@@ -148,7 +148,9 @@ def main():
         gs.MIN_TRADES = 15  # i singoli moduli sono a frequenza più bassa dell'ensemble
 
     out_dir = Path(__file__).parent
-    log_path = out_dir / f"walkforward_{args.symbol}.log"
+    mod_tag = args.modules.replace(",", "+") if args.modules != "all" else "all"
+    tag = f"{args.symbol}_{mod_tag}"
+    log_path = out_dir / f"walkforward_{tag}.log"
     lines: list[str] = []
 
     def w(msg):
@@ -242,12 +244,13 @@ def main():
       f"R={recent['total_r']:.1f} PF={recent['pf']:.2f}")
     w(f"  VERDETTO: {verdict}")
 
-    (out_dir / f"walkforward_{args.symbol}.json").write_text(json.dumps({
-        "symbol": args.symbol, "years": args.years, "folds": args.folds,
+    (out_dir / f"walkforward_{tag}.json").write_text(json.dumps({
+        "symbol": args.symbol, "modules": args.modules, "years": args.years, "folds": args.folds,
+        "default_out_of_sample": def_oos_results,
         "in_sample": is_results, "out_of_sample": oos_results,
         "timestamp": datetime.utcnow().isoformat(),
     }, indent=2), encoding="utf-8")
-    w(f"\nRisultati salvati in: walkforward_{args.symbol}.json e .log")
+    w(f"\nRisultati salvati in: walkforward_{tag}.json e .log")
 
 
 if __name__ == "__main__":
