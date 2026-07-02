@@ -9,7 +9,9 @@ Controlli implementati:
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 import MetaTrader5 as mt5
 
@@ -21,9 +23,39 @@ FRIDAY_CUTOFF_HOUR: int = 20  # UTC
 _equity_peak: float | None = None
 _peak_date: str = ""
 
+# Persistenza del picco su file: senza, un riavvio a meta' giornata (crash,
+# auto-restart, Windows Update) azzererebbe il picco e di fatto DISATTIVEREBBE
+# lo stop sul drawdown giornaliero per il resto della giornata.
+_STATE_FILE = Path(__file__).with_name("dd_state.json")
+
 
 def _today_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _save_state() -> None:
+    try:
+        _STATE_FILE.write_text(
+            json.dumps({"date": _peak_date, "peak": _equity_peak}), encoding="utf-8")
+    except Exception as exc:  # il salvataggio non deve mai fermare il bot
+        print(f"[Portfolio] avviso: impossibile salvare {_STATE_FILE.name}: {exc}")
+
+
+def _load_state() -> None:
+    global _equity_peak, _peak_date
+    try:
+        data = json.loads(_STATE_FILE.read_text(encoding="utf-8"))
+        if data.get("date") == _today_utc():  # il picco vale solo per oggi
+            _peak_date = data["date"]
+            _equity_peak = float(data["peak"])
+            print(f"[Portfolio] picco DD di oggi ricaricato: {_equity_peak:.2f}")
+    except FileNotFoundError:
+        pass
+    except Exception as exc:
+        print(f"[Portfolio] avviso: {_STATE_FILE.name} illeggibile ({exc}); riparto da zero.")
+
+
+_load_state()  # all'import: il picco sopravvive ai riavvii del processo
 
 
 def update_equity_peak(equity: float) -> None:
@@ -33,8 +65,10 @@ def update_equity_peak(equity: float) -> None:
         # nuovo giorno: reset del picco
         _equity_peak = equity
         _peak_date = today
+        _save_state()
     elif _equity_peak is None or equity > _equity_peak:
         _equity_peak = equity
+        _save_state()
 
 
 def is_daily_dd_breached(equity: float) -> bool:

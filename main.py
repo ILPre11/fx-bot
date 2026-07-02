@@ -16,12 +16,15 @@ from __future__ import annotations
 
 import argparse
 import time
+import traceback
 from datetime import datetime, timezone
 
 import config
 from forex_bot.executors.manual import ManualExecutor
 from forex_bot.executors.mt5_executor import Mt5Executor
+from forex_bot.logfile import enable_file_log
 from forex_bot.models import MarketData, Signal
+from forex_bot.monitor import LiveMonitor
 from forex_bot.mt5_client import Mt5Client, Mt5Error
 from forex_bot.risk import lots_for_risk, position_size
 from forex_bot.strategies.fx_multi_regime import FxMultiRegimeStrategy
@@ -128,7 +131,7 @@ def run_once(client, strategies, executor, offset, notifier=None, portfolio=None
 
 
 def watch(client, strategies, executor, offset, interval, max_cycles=0, notifier=None,
-          watch_tf="H1", live_mode=False):
+          watch_tf="H1", live_mode=False, monitor=None):
     watch_tf = watch_tf.upper()
     mode_label = "LIVE (auto-trading demo)" if live_mode else "WATCH"
     print(f"Modalita' {mode_label} - controllo ogni {interval}s, "
@@ -152,92 +155,124 @@ def watch(client, strategies, executor, offset, interval, max_cycles=0, notifier
     try:
         while True:
             cycle += 1
-            acc = client.account()
+            # Ogni ciclo e' protetto: un errore di connessione fa scattare la
+            # riconnessione con backoff, un errore inatteso viene loggato e il
+            # loop continua. Il bot in --live non deve MAI morire in silenzio.
+            try:
+                acc = client.account()
 
-            # ---- re-ottimizzazione notturna (solo --live, se abilitata) ------
-            if live_mode and config.LIVE_NIGHTLY_REOPTIMIZE:
-                today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-                now_hour = datetime.now(timezone.utc).hour
-                if today_utc != last_optimizer_date and now_hour >= config.LIVE_OPTIMIZER_HOUR:
-                    print(f"\n[{_ts()}] Re-ottimizzazione notturna...")
+                if monitor:
+                    monitor.check_algo_trading()
+                    monitor.daily_summary(acc)
+
+                # ---- re-ottimizzazione notturna (solo --live, se abilitata) --
+                if live_mode and config.LIVE_NIGHTLY_REOPTIMIZE:
+                    today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                    now_hour = datetime.now(timezone.utc).hour
+                    if today_utc != last_optimizer_date and now_hour >= config.LIVE_OPTIMIZER_HOUR:
+                        print(f"\n[{_ts()}] Re-ottimizzazione notturna...")
+                        try:
+                            from optimizer.run_optimizer import run_optimizer
+                            active_modules = run_optimizer(client)
+                            for _s in strategies.values():
+                                _s._active_modules = active_modules
+                            last_optimizer_date = today_utc
+                            if notifier:
+                                _notify_optimizer(notifier, active_modules)
+                        except Exception as exc:
+                            print(f"[Optimizer] ERRORE: {exc}  (mantengo config precedente)")
+
+                # ---- controlli di rischio di portafoglio (sempre in --live) --
+                # Devono girare a OGNI ciclo live, indipendentemente dalla
+                # re-ottimizzazione notturna: gestiscono le posizioni GIA' aperte
+                # (Friday cutoff, DD giornaliero, time-stop del modello validato).
+                if live_mode and portfolio:
+                    # Traccia il picco di equity a ogni ciclo (serve al DD
+                    # giornaliero), anche senza segnali che chiamano can_trade().
+                    portfolio.update_equity_peak(acc.equity)
+
+                    # ---- Friday cutoff --------------------------------------
+                    if portfolio.is_friday_cutoff():
+                        print(f"[{_ts()}] Friday cutoff: chiudo tutte le posizioni del bot.")
+                        n = portfolio.close_all_bot_positions(config.MAGIC)
+                        print(f"  Chiuse {n} posizioni. Bot in pausa fino a lunedì.")
+                        if monitor:
+                            monitor.friday_cutoff(n)
+                        time.sleep(interval)
+                        continue
+
+                    # ---- DD giornaliero -------------------------------------
+                    if portfolio.is_daily_dd_breached(acc.equity):
+                        print(f"[{_ts()}] DD giornaliero -10% superato "
+                              f"(equity {acc.equity:.2f}). Nessun nuovo trade oggi.")
+                        if monitor:
+                            monitor.dd_breached(acc.equity)
+                        time.sleep(interval)
+                        continue
+
+                    # ---- time-stop del modello validato (posizioni vecchie) --
+                    if max_bars:
+                        n = portfolio.close_expired_positions(max_bars, config.MAGIC)
+                        if n:
+                            print(f"[{_ts()}] Time-stop: chiuse {n} posizioni oltre la durata massima.")
+                            if monitor:
+                                monitor.alert(f"⏱ Time-stop: chiuse {n} posizioni "
+                                              "oltre la durata massima validata.")
+
+                # ---- normale logica di watch --------------------------------
+                new_syms = []
+                for symbol in config.SYMBOLS:
                     try:
-                        from optimizer.run_optimizer import run_optimizer
-                        active_modules = run_optimizer(client)
-                        for _s in strategies.values():
-                            _s._active_modules = active_modules
-                        last_optimizer_date = today_utc
-                        if notifier:
-                            _notify_optimizer(notifier, active_modules)
-                    except Exception as exc:
-                        print(f"[Optimizer] ERRORE: {exc}  (mantengo config precedente)")
-
-            # ---- controlli di rischio di portafoglio (sempre in --live) ------
-            # Devono girare a OGNI ciclo live, indipendentemente dalla
-            # re-ottimizzazione notturna: gestiscono le posizioni GIA' aperte
-            # (Friday cutoff, DD giornaliero, time-stop del modello validato).
-            if live_mode and portfolio:
-                # Traccia il picco di equity a ogni ciclo (serve al DD giornaliero),
-                # anche quando non ci sono segnali che chiamano can_trade().
-                portfolio.update_equity_peak(acc.equity)
-
-                # ---- Friday cutoff ------------------------------------------
-                if portfolio.is_friday_cutoff():
-                    print(f"[{_ts()}] Friday cutoff: chiudo tutte le posizioni del bot.")
-                    n = portfolio.close_all_bot_positions(config.MAGIC)
-                    print(f"  Chiuse {n} posizioni. Bot in pausa fino a lunedì.")
-                    time.sleep(interval)
-                    continue
-
-                # ---- DD giornaliero -----------------------------------------
-                if portfolio.is_daily_dd_breached(acc.equity):
-                    print(f"[{_ts()}] DD giornaliero -10% superato "
-                          f"(equity {acc.equity:.2f}). Nessun nuovo trade oggi.")
-                    time.sleep(interval)
-                    continue
-
-                # ---- time-stop del modello validato (chiude posizioni vecchie) -
-                if max_bars:
-                    n = portfolio.close_expired_positions(max_bars, config.MAGIC)
-                    if n:
-                        print(f"[{_ts()}] Time-stop: chiuse {n} posizioni oltre la durata massima.")
-
-            # ---- normale logica di watch ------------------------------------
-            new_syms = []
-            for symbol in config.SYMBOLS:
-                try:
-                    bar_time = client.rates(symbol, watch_tf, 3)["time"].iloc[-2]
-                    if last_seen.get(symbol) != bar_time:
-                        last_seen[symbol] = bar_time
-                        new_syms.append(symbol)
-                except Mt5Error as exc:
-                    print(f"[{symbol}] errore: {exc}")
-
-            if new_syms:
-                stamp = _ts()
-                print(f"[{stamp}] nuova barra {watch_tf} - analizzo {len(new_syms)} simbolo/i...")
-                found = 0
-                acc = client.account()  # equity aggiornata
-
-                for symbol in new_syms:
-                    try:
-                        signal, info = analyze(client, strategies[symbol], symbol, acc.equity, offset)
-                        if signal is None:
-                            continue
-                        if portfolio is not None:
-                            ok, reason = portfolio.can_trade(symbol, acc.equity, config.MAGIC)
-                            if not ok:
-                                print(f"  [{symbol}] Bloccato: {reason}")
-                                continue
-                        executor.handle(signal, info)
-                        if notifier:
-                            notifier.send_signal(signal, info)
-                        print()
-                        found += 1
+                        bar_time = client.rates(symbol, watch_tf, 3)["time"].iloc[-2]
+                        if last_seen.get(symbol) != bar_time:
+                            last_seen[symbol] = bar_time
+                            new_syms.append(symbol)
                     except Mt5Error as exc:
                         print(f"[{symbol}] errore: {exc}")
 
-                if not found:
-                    print("  nessun segnale su questa barra.\n")
+                if new_syms:
+                    stamp = _ts()
+                    print(f"[{stamp}] nuova barra {watch_tf} - analizzo {len(new_syms)} simbolo/i...")
+                    found = 0
+                    acc = client.account()  # equity aggiornata
+
+                    for symbol in new_syms:
+                        try:
+                            signal, info = analyze(client, strategies[symbol], symbol, acc.equity, offset)
+                            if signal is None:
+                                continue
+                            if portfolio is not None:
+                                ok, reason = portfolio.can_trade(symbol, acc.equity, config.MAGIC)
+                                if not ok:
+                                    print(f"  [{symbol}] Bloccato: {reason}")
+                                    continue
+                            executor.handle(signal, info)
+                            if notifier:
+                                notifier.send_signal(signal, info)
+                            print()
+                            found += 1
+                        except Mt5Error as exc:
+                            print(f"[{symbol}] errore: {exc}")
+
+                    if not found:
+                        print("  nessun segnale su questa barra.\n")
+
+            except Mt5Error as exc:
+                # connessione al terminale persa: riconnessione bloccante
+                print(f"[{_ts()}] Connessione MT5 persa: {exc}")
+                if monitor:
+                    monitor.alert(f"⚠️ Connessione MT5 persa: {exc}. "
+                                  "Riconnessione automatica con backoff...")
+                _reconnect_forever(client, monitor)
+                continue
+            except Exception as exc:
+                # bug o errore transitorio: post-mortem nel log, il loop continua
+                traceback.print_exc()
+                if monitor:
+                    monitor.alert(f"🚨 Errore inatteso nel ciclo: {exc!r}. "
+                                  f"Continuo tra {interval}s (dettagli nel log).")
+                time.sleep(interval)
+                continue
 
             if max_cycles and cycle >= max_cycles:
                 break
@@ -245,6 +280,30 @@ def watch(client, strategies, executor, offset, interval, max_cycles=0, notifier
 
     except KeyboardInterrupt:
         print("\nWatch interrotto.")
+
+
+def _reconnect_forever(client, monitor=None) -> None:
+    """Riconnessione con backoff (30s, 60s, 120s, poi ogni 300s). Non ritorna
+    finche' la connessione non e' ripristinata: se MT5 e' chiuso, initialize()
+    lo rilancia; se il terminale non risponde, si continua a riprovare."""
+    delays = [30, 60, 120]
+    attempt = 0
+    while True:
+        wait = delays[attempt] if attempt < len(delays) else 300
+        print(f"[{_ts()}] nuovo tentativo di connessione tra {wait}s...")
+        time.sleep(wait)
+        attempt += 1
+        try:
+            client.disconnect()
+            client.connect()
+            acc = client.account()
+            print(f"[{_ts()}] Riconnesso: account {acc.login}, equity {acc.equity:.2f}.")
+            if monitor:
+                monitor.alert(f"✅ Riconnesso a MT5 dopo {attempt} tentativo/i "
+                              f"(equity {acc.equity:.2f}).")
+            return
+        except Mt5Error as exc:
+            print(f"[{_ts()}] tentativo {attempt} fallito: {exc}")
 
 
 def _ts() -> str:
@@ -320,10 +379,15 @@ def main() -> None:
 
     live_mode = args.live
     auto_execute = config.AUTO_EXECUTE or live_mode
+    continuous = live_mode or args.watch
+
+    # Log rotante: tutto l'output delle modalita' continue finisce anche su file.
+    if continuous:
+        enable_file_log(config.LOG_FILE, config.LOG_MAX_BYTES, config.LOG_BACKUPS)
 
     # Anti-doppione: un solo bot continuo per volta (evita ordini duplicati).
     _lock = None
-    if live_mode or args.watch:
+    if continuous:
         _lock = _acquire_single_instance()
         if _lock is None:
             raise SystemExit(
@@ -332,11 +396,12 @@ def main() -> None:
                 "ordini doppi. Avvio annullato.")
 
     strategies = build_strategies(active_modules=None)  # una per simbolo, params ottimizzati se presenti
-    executor = (Mt5Executor(magic=config.MAGIC, deviation=config.DEVIATION)
-                if auto_execute else ManualExecutor())
     notifier = None
     if config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID:
         notifier = TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID)
+    executor = (Mt5Executor(magic=config.MAGIC, deviation=config.DEVIATION, notifier=notifier)
+                if auto_execute else ManualExecutor())
+    monitor = LiveMonitor(notifier) if live_mode else None
 
     try:
         with Mt5Client(config.MT5_LOGIN, config.MT5_PASSWORD,
@@ -382,13 +447,43 @@ def main() -> None:
             if notifier:
                 print("Notifiche Telegram: attive\n")
 
-            if args.watch or live_mode:
+            if monitor:
+                # check Algo Trading all'avvio (senza, ordini falliti in silenzio)
+                monitor.check_algo_trading()
+                monitor.alert(f"🚀 Bot LIVE avviato: account {acc.login} [{tipo}], "
+                              f"equity {acc.equity:.2f} {acc.currency}, "
+                              f"strategie: " + ", ".join(
+                                  f"{s} {'+'.join(m.upper() for m in mods)}"
+                                  for s, mods in config.VALIDATED_STRATEGIES.items()) + ".")
+
+            if continuous:
                 watch(client, strategies, executor, offset, args.interval, args.cycles,
-                      notifier, args.watch_tf, live_mode=live_mode)
+                      notifier, args.watch_tf, live_mode=live_mode, monitor=monitor)
             else:
                 run_once(client, strategies, executor, offset, notifier)
     except Mt5Error as exc:
-        raise SystemExit(f"Connessione a MT5 fallita: {exc}")
+        # Connessione INIZIALE fallita (dopo, ci pensa la riconnessione nel
+        # loop). In modalita' continua non ci si arrende: al boot la rete o
+        # MT5 potrebbero non essere ancora pronti.
+        if continuous:
+            print(f"Connessione a MT5 fallita: {exc}")
+            if monitor:
+                monitor.alert(f"⚠️ Avvio: connessione a MT5 fallita ({exc}). "
+                              "Riprovo con backoff...")
+            client = Mt5Client(config.MT5_LOGIN, config.MT5_PASSWORD,
+                               config.MT5_SERVER, config.MT5_PATH)
+            _reconnect_forever(client, monitor)
+            try:
+                acc = client.account()
+                offset = detect_offset(client)
+                if monitor:
+                    monitor.check_algo_trading()
+                watch(client, strategies, executor, offset, args.interval, args.cycles,
+                      notifier, args.watch_tf, live_mode=live_mode, monitor=monitor)
+            finally:
+                client.disconnect()
+        else:
+            raise SystemExit(f"Connessione a MT5 fallita: {exc}")
 
 
 if __name__ == "__main__":

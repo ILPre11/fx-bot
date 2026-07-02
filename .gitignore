@@ -4,6 +4,10 @@ __pycache__/
 .venv/
 venv/
 *.log
+logs/
+
+# Stato runtime del bot (picco DD giornaliero, sopravvive ai riavvii)
+risk/dd_state.json
 
 # Impostazioni locali di Claude Code (possono contenere comandi con token/segreti)
 .claude/
