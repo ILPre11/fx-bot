@@ -22,6 +22,9 @@ def lots_for_risk(balance: float, risk_pct: float, loss_per_lot: float,
     `loss_per_lot` e' in valuta del conto (idealmente da mt5.order_calc_profit).
     """
     if loss_per_lot <= 0:
+        print(f"[risk] ATTENZIONE: loss_per_lot={loss_per_lot} non valido; "
+              f"uso il lotto minimo ({symbol_info.volume_min}). "
+              f"Sizing NON calcolato sul rischio.")
         return symbol_info.volume_min
     risk_amount = balance * risk_pct
     return _round_to_step(risk_amount / loss_per_lot, symbol_info)
@@ -38,6 +41,10 @@ def position_size(balance: float, risk_pct: float, entry: float,
     tick_value = symbol_info.trade_tick_value
     tick_size = symbol_info.trade_tick_size
     if sl_distance <= 0 or not tick_size or not tick_value:
+        print(f"[risk] ATTENZIONE: dati insufficienti per il sizing "
+              f"(sl_distance={sl_distance}, tick_size={tick_size}, "
+              f"tick_value={tick_value}); uso il lotto minimo "
+              f"({symbol_info.volume_min}). Sizing NON calcolato sul rischio.")
         return symbol_info.volume_min
     loss_per_lot = (sl_distance / tick_size) * tick_value
     return lots_for_risk(balance, risk_pct, loss_per_lot, symbol_info)
