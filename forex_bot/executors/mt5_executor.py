@@ -18,10 +18,19 @@ class Mt5Executor(Executor):
         magic: int = 555000,
         deviation: int = 20,
         allow_live: bool = False,
+        notifier=None,
     ) -> None:
         self.magic = magic
         self.deviation = deviation
         self.allow_live = allow_live  # protezione: di default opera solo su demo
+        self.notifier = notifier      # alert Telegram su esito ordine (opzionale)
+
+    def _alert(self, text: str) -> None:
+        if self.notifier:
+            try:
+                self.notifier.send(text)
+            except Exception:
+                pass  # Telegram giu' non deve bloccare l'esecuzione
 
     def handle(self, signal: Signal, symbol_info=None) -> None:
         print(format_signal(signal, symbol_info))
@@ -36,6 +45,8 @@ class Mt5Executor(Executor):
         is_demo = account.trade_mode == mt5.ACCOUNT_TRADE_MODE_DEMO
         if not is_demo and not self.allow_live:
             print("[Mt5Executor] Conto NON demo: esecuzione bloccata per sicurezza.")
+            self._alert(f"🚨 {signal.symbol}: ordine BLOCCATO, il conto collegato "
+                        "NON e' demo. Verifica il terminale MT5!")
             return
 
         tick = mt5.symbol_info_tick(signal.symbol)
@@ -68,6 +79,11 @@ class Mt5Executor(Executor):
         if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
             detail = getattr(result, "comment", None) or mt5.last_error()
             print(f"[Mt5Executor] Ordine FALLITO: {detail}")
+            self._alert(f"🚨 {signal.symbol} {signal.side.value}: ordine FALLITO "
+                        f"({detail}). Controlla il terminale MT5.")
         else:
             print(f"[Mt5Executor] Ordine eseguito: ticket {result.order}, "
                   f"{signal.lots} lotti.")
+            self._alert(f"✅ {signal.symbol} {signal.side.value} eseguito: "
+                        f"{signal.lots} lotti, ticket {result.order}, "
+                        f"SL {signal.stop_loss} / TP {signal.take_profit}.")

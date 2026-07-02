@@ -108,6 +108,15 @@ DEVIATION: int = 20        # slippage massimo in punti
 LIVE_OPTIMIZER_HOUR: int = 0    # ora UTC in cui scatta il re-eval notturno (mezzanotte)
 LIVE_OPTIMIZER_BARS: int = 2000  # barre H1 usate dal backtest rolling (override in run_optimizer)
 
+# --- Monitoraggio / resilienza (modalita' --watch e --live) -------------------
+# Riepilogo Telegram giornaliero: e' l'heartbeat del bot (un messaggio atteso
+# al giorno: se non arriva, il bot non sta girando). 06 UTC = 8:00 italiane (estate).
+DAILY_SUMMARY_HOUR_UTC: int = 6
+# Log rotante dell'output (console + file, per il post-mortem di crash/riavvii).
+LOG_FILE: str = "logs/bot.log"
+LOG_MAX_BYTES: int = 5_000_000
+LOG_BACKUPS: int = 3
+
 # --- Portfolio Risk Layer (solo in modalita' live) ----------------------------
 PORTFOLIO_MAX_DAILY_DD: float = 0.10   # -10% equity giornaliero → stop tutto
 PORTFOLIO_MAX_POSITIONS: int = 6       # max posizioni aperte contemporaneamente
