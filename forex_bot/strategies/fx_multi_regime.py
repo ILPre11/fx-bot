@@ -366,7 +366,7 @@ class FxMultiRegimeStrategy(Strategy):
         usa l'ora della barra corrente (data.as_of) per non leggere il futuro."""
         if getattr(data, "as_of", None) is not None:
             return pd.Timestamp(data.as_of)
-        return pd.Timestamp.utcnow().tz_localize(None)
+        return pd.Timestamp.now(tz="UTC").tz_localize(None)
 
     def _asia_range(self, data: MarketData):
         """Massimo/minimo delle barre H1 nella sessione asiatica (00-06 UTC) di oggi.

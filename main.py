@@ -171,8 +171,17 @@ def watch(client, strategies, executor, offset, interval, max_cycles=0, notifier
                     except Exception as exc:
                         print(f"[Optimizer] ERRORE: {exc}  (mantengo config precedente)")
 
+            # ---- controlli di rischio di portafoglio (sempre in --live) ------
+            # Devono girare a OGNI ciclo live, indipendentemente dalla
+            # re-ottimizzazione notturna: gestiscono le posizioni GIA' aperte
+            # (Friday cutoff, DD giornaliero, time-stop del modello validato).
+            if live_mode and portfolio:
+                # Traccia il picco di equity a ogni ciclo (serve al DD giornaliero),
+                # anche quando non ci sono segnali che chiamano can_trade().
+                portfolio.update_equity_peak(acc.equity)
+
                 # ---- Friday cutoff ------------------------------------------
-                if portfolio and portfolio.is_friday_cutoff():
+                if portfolio.is_friday_cutoff():
                     print(f"[{_ts()}] Friday cutoff: chiudo tutte le posizioni del bot.")
                     n = portfolio.close_all_bot_positions(config.MAGIC)
                     print(f"  Chiuse {n} posizioni. Bot in pausa fino a lunedì.")
@@ -180,14 +189,14 @@ def watch(client, strategies, executor, offset, interval, max_cycles=0, notifier
                     continue
 
                 # ---- DD giornaliero -----------------------------------------
-                if portfolio and portfolio.is_daily_dd_breached(acc.equity):
+                if portfolio.is_daily_dd_breached(acc.equity):
                     print(f"[{_ts()}] DD giornaliero -10% superato "
                           f"(equity {acc.equity:.2f}). Nessun nuovo trade oggi.")
                     time.sleep(interval)
                     continue
 
-                # ---- time-stop ottimizzato (chiude posizioni troppo vecchie) -
-                if portfolio and max_bars:
+                # ---- time-stop del modello validato (chiude posizioni vecchie) -
+                if max_bars:
                     n = portfolio.close_expired_positions(max_bars, config.MAGIC)
                     if n:
                         print(f"[{_ts()}] Time-stop: chiuse {n} posizioni oltre la durata massima.")

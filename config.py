@@ -34,7 +34,7 @@ RISK_PROFILES: dict = {
         "risk_mean_pct": 0.25,
     },
     # Ultra Aggressive Demo 5K: SOLO conto demo / stress test, molto aggressivo
-    # (vedi risk/strategy/risk_layer/ULTRA_AGGRESSIVE_DEMO_5K.md).
+    # (vedi strategy/risk_layer/ULTRA_AGGRESSIVE_DEMO_5K.md).
     "ultra_aggressive_5k": {
         "symbols": ["EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "USDCHF", "EURJPY",
                     "USDCAD", "NZDUSD", "EURGBP"],
