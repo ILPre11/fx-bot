@@ -15,6 +15,8 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import ctypes
+import sys
 import time
 import traceback
 from datetime import datetime, timezone
@@ -130,6 +132,24 @@ def run_once(client, strategies, executor, offset, notifier=None, portfolio=None
             print(f"[{symbol}] Errore: {exc}")
 
 
+def _keep_system_awake(enable: bool) -> None:
+    """Dice a Windows di non sospendere il PC finche' il bot gira (lo schermo
+    puo' comunque spegnersi). Senza, il Modern Standby congela il loop e le
+    barre H4 non vengono mai valutate. Va richiamata con False all'uscita:
+    il flag ES_CONTINUOUS resta attivo finche' il thread e' vivo."""
+    if sys.platform != "win32":
+        return
+    ES_CONTINUOUS = 0x80000000
+    ES_SYSTEM_REQUIRED = 0x00000001
+    flags = ES_CONTINUOUS | (ES_SYSTEM_REQUIRED if enable else 0)
+    if ctypes.windll.kernel32.SetThreadExecutionState(flags) == 0:
+        print("[keep-awake] SetThreadExecutionState fallita: il PC potrebbe "
+              "andare in sospensione con il bot attivo.")
+    elif enable:
+        print("[keep-awake] sospensione di sistema inibita finche' il bot gira "
+              "(NB: chiudere il coperchio puo' comunque sospendere il PC).")
+
+
 def watch(client, strategies, executor, offset, interval, max_cycles=0, notifier=None,
           watch_tf="H1", live_mode=False, monitor=None):
     watch_tf = watch_tf.upper()
@@ -152,6 +172,7 @@ def watch(client, strategies, executor, offset, interval, max_cycles=0, notifier
 
     last_seen: dict[str, object] = {}
     cycle = 0
+    _keep_system_awake(True)
     try:
         while True:
             cycle += 1
@@ -280,6 +301,8 @@ def watch(client, strategies, executor, offset, interval, max_cycles=0, notifier
 
     except KeyboardInterrupt:
         print("\nWatch interrotto.")
+    finally:
+        _keep_system_awake(False)
 
 
 def _reconnect_forever(client, monitor=None) -> None:
