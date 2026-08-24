@@ -1,0 +1,43 @@
+{
+  "legs": [
+    "NZDUSD(trend+vol)",
+    "USDJPY(vol)",
+    "EURJPY(vol)",
+    "CADJPY(vol)"
+  ],
+  "risk_profile": "ultra_aggressive_5k",
+  "years": 8.0,
+  "folds": 3,
+  "overlap_start": "2018-12-11",
+  "overlap_end": "2026-07-31",
+  "fold_combined": [
+    {
+      "num_trades": 218,
+      "pf": 1.139,
+      "total": 38.4,
+      "sharpe": 0.96,
+      "max_dd": 35.5
+    },
+    {
+      "num_trades": 250,
+      "pf": 1.65,
+      "total": 171.33,
+      "sharpe": 3.75,
+      "max_dd": 18.7
+    },
+    {
+      "num_trades": 268,
+      "pf": 1.309,
+      "total": 97.78,
+      "sharpe": 2.0,
+      "max_dd": 20.9
+    }
+  ],
+  "concurrency": {
+    "max_concurrent": 4,
+    "avg_concurrent": 0.262,
+    "pct_time_with_2plus": 3.26
+  },
+  "verdict": "VALIDA: il portafoglio combinato e' positivo e consistente in TUTTE le fette.",
+  "timestamp": "2026-08-01T15:58:31.052892"
+}

@@ -6,28 +6,28 @@
   "risk_profile": "ultra_aggressive_5k",
   "years": 8.0,
   "folds": 3,
-  "overlap_start": "2018-11-08",
-  "overlap_end": "2026-07-01",
+  "overlap_start": "2018-12-11",
+  "overlap_end": "2026-07-31",
   "fold_combined": [
     {
-      "num_trades": 115,
-      "pf": 1.099,
-      "total": 16.0,
-      "sharpe": 0.69,
-      "max_dd": 26.5
+      "num_trades": 114,
+      "pf": 1.063,
+      "total": 10.3,
+      "sharpe": 0.45,
+      "max_dd": 24.0
     },
     {
-      "num_trades": 103,
-      "pf": 1.548,
-      "total": 67.33,
-      "sharpe": 3.26,
+      "num_trades": 102,
+      "pf": 1.589,
+      "total": 70.53,
+      "sharpe": 3.46,
       "max_dd": 12.9
     },
     {
-      "num_trades": 116,
-      "pf": 1.324,
-      "total": 48.7,
-      "sharpe": 2.07,
+      "num_trades": 117,
+      "pf": 1.348,
+      "total": 52.3,
+      "sharpe": 2.21,
       "max_dd": 16.4
     }
   ],
@@ -37,5 +37,5 @@
     "pct_time_with_2plus": 0.36
   },
   "verdict": "VALIDA: il portafoglio combinato e' positivo e consistente in TUTTE le fette.",
-  "timestamp": "2026-07-01T09:42:43.728427"
+  "timestamp": "2026-08-01T15:58:51.436272"
 }

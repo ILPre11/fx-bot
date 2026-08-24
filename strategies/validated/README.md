@@ -23,24 +23,34 @@ Criteri per essere "validata":
 |---|---|---|---|---|
 | [NZDUSD_trend.md](NZDUSD_trend.md) | NZDUSD | trend | 2.50% (`risk_trend_pct`) | Validata, 7/9 anni positivi, WF 3/3 |
 | [USDJPY_vol.md](USDJPY_vol.md) | USDJPY | vol | 1.80% (`risk_vol_pct`) | Validata, 6/9 anni positivi, WF 3/3 |
+| (vedi portafoglio) | NZDUSD | vol | 1.80% (`risk_vol_pct`) | Validata, 6/9 anni positivi, WF 3/3 |
+| (vedi portafoglio) | EURJPY | vol | 1.80% (`risk_vol_pct`) | Attiva per flusso ordini — piatta nell'ultima fetta |
+| (vedi portafoglio) | CADJPY | vol | 1.80% (`risk_vol_pct`) | Attiva, PF 1.40 storico, 6/9 anni |
 
 ## Combinazione di portafoglio
 
-[portfolio_NZDUSD-trend_USDJPY-vol.md](portfolio_NZDUSD-trend_USDJPY-vol.md) —
-le due gambe sopra unite con la size reale (profilo `ultra_aggressive_5k`):
-walk-forward di portafoglio 3/3 fette positive, correlazione giornaliera ≈ 0,
-diversificazione del drawdown reale (non correlazione nascosta).
+**Attiva dal 2026-08-01**: [portfolio_5_gambe.md](portfolio_5_gambe.md) — 5 gambe
+(NZDUSD trend+vol, USDJPY vol, EURJPY vol, CADJPY vol), walk-forward 3/3 fette
+positive, ~8,8 trade/mese contro i 3,8 della configurazione precedente.
+Motivo del cambio: **flusso di ordini** (con 2 gambe servivano 6-8 mesi per
+accumulare i 20-30 trade del test demo).
+
+Configurazione precedente, ancora valida ma più lenta:
+[portfolio_NZDUSD-trend_USDJPY-vol.md](portfolio_NZDUSD-trend_USDJPY-vol.md).
 
 ## Candidate scartate o non ancora promosse
 
-- **NZDUSD VOL** — validata singolarmente (WF 3/3, +6.3R PF1.34) ma valutata
-  come 3ª gamba di portafoglio e **scartata**: non diversifica contro NZDUSD
-  Trend (stesso simbolo, arbitrato allo stesso slot), aumenta il drawdown
-  combinato in 2 fette su 3 a fronte di più rendimento. Vedi
-  `optimizer/walkforward_NZDUSD_vol.{log,json}` e
-  `optimizer/walkforward_portfolio_NZDUSD-trend+vol_USDJPY-vol.log` per i dati.
-- **EURJPY VOL, EURUSD VOL, USDCHF VOL** — edge più debole/incoerente,
-  esplorate ma non promosse. Vedi `optimizer/walkforward_{EURJPY,EURUSD,USDCHF}.log`.
+- **NZDUSD VOL** — era stata scartata come 3ª gamba (drawdown combinato più alto
+  in 2 fette su 3). **Decisione ribaltata il 2026-08-01**: rimisurata sui dati
+  aggiornati a fine luglio e con gli stessi confini di fetta, la configurazione
+  a 3 gambe ha DD nella fetta peggiore **più basso** di quella a 2 gambe
+  (21,5% contro 24,0%), PF più alto e +1,2 trade/mese. Ora è attiva.
+- **EURJPY VOL** — promossa il 2026-08-01 **per il flusso di ordini, non per
+  l'edge**: miglior Total R storico (+48,3R, PF 1,48, 7/9 anni) ma nell'ultima
+  fetta è piatta (PF 1,01). È la prima gamba da togliere per ridurre il rischio.
+- **EURUSD VOL, USDCHF VOL** — edge più debole/incoerente (USDCHF VOL: +3,0R su
+  8 anni, PF 1,03), esplorate ma non promosse. Vedi
+  `optimizer/walkforward_{EURUSD,USDCHF}.log`.
 - **EURJPY ensemble ottimizzato** (+126R in-sample) — **scartata**: walk-forward
   negativo (l'edge decade nel tempo, fetta più recente in perdita). Esempio di
   overfitting da NON ripetere.
@@ -50,5 +60,5 @@ diversificazione del drawdown reale (non correlazione nascosta).
 ```
 python -m optimizer.validate_one --symbol NZDUSD --module trend --years 8
 python -m optimizer.walk_forward --symbol NZDUSD --modules trend --space trend --years 8 --folds 3
-python -m optimizer.walk_forward_portfolio --legs NZDUSD:trend,USDJPY:vol --years 8 --folds 3
+python -m optimizer.walk_forward_portfolio --legs NZDUSD:trend,USDJPY:vol,NZDUSD:vol,EURJPY:vol,CADJPY:vol --years 8 --folds 3
 ```

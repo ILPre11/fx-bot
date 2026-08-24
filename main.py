@@ -3,9 +3,10 @@ dell'EA) e mostra i segnali.
 
 Uso:
   python main.py                      analisi singola (una passata sui simboli)
-  python main.py --watch              monitoraggio continuo (su nuova barra H4, da config)
+  python main.py --watch              monitoraggio continuo (su nuova barra H1, da config)
   python main.py --watch --interval 60   controlla ogni 60s (default 30)
-  python main.py --watch --watch-tf H1   ri-valuta su ogni barra H1 invece che H4
+  python main.py --watch --watch-tf H4   ri-valuta solo su barra H4 (SCONSIGLIATO:
+                                        perde ~2/3 dei segnali, vedi config.WATCH_TIMEFRAME)
   python main.py --live               trading automatico su demo:
                                         - attiva AUTO_EXECUTE
                                         - applica portfolio risk layer (DD, max pos, Friday)
@@ -150,6 +151,66 @@ def _keep_system_awake(enable: bool) -> None:
               "(NB: chiudere il coperchio puo' comunque sospendere il PC).")
 
 
+# tiene vivo il callback per tutta la vita del processo: se il GC lo liberasse,
+# Windows chiamerebbe memoria liberata al momento della chiusura -> crash.
+_console_ctrl_handler_ref = None
+
+
+def _install_console_close_alert(monitor=None, notifier=None) -> None:
+    """Su Windows intercetta la CHIUSURA della finestra (la X), il logoff e
+    l'arresto del sistema, e manda un ultimo alert Telegram prima che il
+    processo venga ucciso.
+
+    Serve perche' chiudere la console termina il bot SENZA eseguire alcun
+    handler Python: niente traceback, niente 'Watch interrotto', nessun avviso.
+    E' esattamente cosi' che il bot e' morto in silenzio il 2026-07-10. Con
+    questo, almeno arriva un 'sono morto'. Best-effort: Windows concede solo
+    pochi secondi prima del kill, quindi l'invio potrebbe non completarsi se la
+    rete e' lenta.
+
+    Ctrl+C / Ctrl+Break NON sono gestiti qui (si ritorna sempre False): restano
+    l'interruzione volontaria gestita dal KeyboardInterrupt di watch()."""
+    global _console_ctrl_handler_ref
+    if sys.platform != "win32":
+        return
+    if monitor is None and notifier is None:
+        return  # nessun canale di notifica: niente da inviare
+
+    from ctypes import wintypes
+
+    CTRL_CLOSE_EVENT = 2
+    CTRL_LOGOFF_EVENT = 5
+    CTRL_SHUTDOWN_EVENT = 6
+    causa = {
+        CTRL_CLOSE_EVENT: "finestra chiusa",
+        CTRL_LOGOFF_EVENT: "logoff utente",
+        CTRL_SHUTDOWN_EVENT: "arresto di Windows",
+    }
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.DWORD)
+    def _handler(ctrl_type):
+        if ctrl_type in causa:
+            msg = (f"⚠️ Bot TERMINATO ({causa[ctrl_type]}): il processo "
+                   "e' stato chiuso, il loop live non gira piu'. Riavvialo per "
+                   "riprendere l'operativita'.")
+            try:
+                if monitor is not None:
+                    monitor.alert(msg)
+                else:
+                    notifier.send(msg)
+            except Exception:
+                pass  # best-effort: non ostacolare comunque la chiusura
+        return False  # lascia proseguire la terminazione di default (incl. Ctrl+C)
+
+    _console_ctrl_handler_ref = _handler  # NON deve essere garbage-collected
+    if not ctypes.windll.kernel32.SetConsoleCtrlHandler(_handler, True):
+        print("[watchdog] SetConsoleCtrlHandler fallita: nessun avviso Telegram "
+              "se la finestra viene chiusa.")
+    else:
+        print("[watchdog] avviso Telegram armato: se la finestra viene chiusa "
+              "arrivera' un ultimo messaggio prima dello stop.")
+
+
 def watch(client, strategies, executor, offset, interval, max_cycles=0, notifier=None,
           watch_tf="H1", live_mode=False, monitor=None):
     watch_tf = watch_tf.upper()
@@ -173,6 +234,7 @@ def watch(client, strategies, executor, offset, interval, max_cycles=0, notifier
     last_seen: dict[str, object] = {}
     cycle = 0
     _keep_system_awake(True)
+    _install_console_close_alert(monitor, notifier)
     try:
         while True:
             cycle += 1
@@ -386,7 +448,8 @@ def _acquire_single_instance(port: int = 59321):
 def main() -> None:
     parser = argparse.ArgumentParser(description="FX Multi-Regime: analisi e segnali da MT5.")
     parser.add_argument("--watch", action="store_true",
-                        help="monitoraggio continuo (nuova barra H4)")
+                        help="monitoraggio continuo (rivaluta a ogni nuova barra "
+                             "config.WATCH_TIMEFRAME)")
     parser.add_argument("--live", action="store_true",
                         help="trading automatico su demo: AUTO_EXECUTE + portfolio risk + re-ottimizzazione notturna")
     parser.add_argument("--interval", type=int, default=30,

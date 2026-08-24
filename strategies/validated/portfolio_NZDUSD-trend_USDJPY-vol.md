@@ -1,5 +1,12 @@
 # Portafoglio — NZDUSD Trend + USDJPY VOL
 
+> **SUPERATO dal 2026-08-01** — sostituito da [portfolio_5_gambe.md](portfolio_5_gambe.md).
+> Questa combinazione resta valida (WF 3/3) ma produce solo ~3,8 trade/mese:
+> troppo pochi per accumulare i 20-30 trade del test demo in tempi ragionevoli.
+> Anche la sezione "Candidata scartata: aggiungere NZDUSD VOL" qui sotto è
+> superata: rimisurata sui dati aggiornati, la 3ª gamba **abbassa** il DD della
+> fetta peggiore (21,5% contro 24,0%). Vedi il nuovo documento.
+
 Combinazione delle due strategie validate singolarmente ([NZDUSD_trend.md](NZDUSD_trend.md),
 [USDJPY_vol.md](USDJPY_vol.md)), operata insieme con la size reale del profilo
 di rischio attivo (`ultra_aggressive_5k`: 2.50%/trade su NZDUSD Trend, 1.80%/trade

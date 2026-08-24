@@ -52,9 +52,25 @@ _PROFILE = RISK_PROFILES[RISK_PROFILE]
 # Mappa coppia -> moduli attivi. Una strategia = coppia + modulo/i + parametri
 # DEFAULT (validati walk-forward). NIENTE ottimizzazione: è stato verificato che
 # ottimizzare peggiora l'out-of-sample. Moduli validi: "trend","vol","meanrev","asia".
+#
+# 2026-08-01: portato da 2 a 5 gambe per aumentare il FLUSSO DI ORDINI. Ogni
+# gamba produce solo ~1,5-1,9 trade/mese e lo slot per simbolo risulta occupato
+# appena il 4-8% del tempo -> il tappo non era il vincolo "1 posizione per
+# simbolo", era la rarità del segnale, e le gambe si sommano quasi linearmente.
+# Walk-forward di portafoglio (8 anni, 3 fette, fetta più recente 2024-01 -> 2026-07):
+#   2 gambe: 117 trade (3,8/mese) PF 1.35 tot +52,3% DD 16,4%   VALIDA 3/3
+#   3 gambe: 153 trade (5,0/mese) PF 1.40 tot +73,9% DD 18,2%   VALIDA 3/3
+#   4 gambe: 203 trade (6,6/mese) PF 1.41 tot +97,3% DD 25,4%   VALIDA 3/3
+#   5 gambe: 268 trade (8,8/mese) PF 1.31 tot +97,8% DD 20,9%   VALIDA 3/3  <-- attiva
+# Prezzo da pagare: nella fetta 1 (2018-12 -> 2021-06, la peggiore) il DD passa
+# da 24,0% a 35,5%. Per tornare indietro basta togliere gambe da questa mappa:
+# senza "EURJPY" = 4 gambe, senza EURJPY e CADJPY = 3 gambe, ecc.
+# Fonte: optimizer/walkforward_portfolio_*.log, strategies/validated/.
 VALIDATED_STRATEGIES: dict[str, list[str]] = {
-    "NZDUSD": ["trend"],   # NZDUSD Trend  (WF 3/3, plateau parametri, 7/9 anni)
-    "USDJPY": ["vol"],     # USDJPY VOL    (WF 3/3, plateau parametri, 6/9 anni)
+    "NZDUSD": ["trend", "vol"],  # Trend (WF 3/3, 7/9 anni) + VOL (WF 3/3, 6/9 anni)
+    "USDJPY": ["vol"],           # USDJPY VOL   (WF 3/3, plateau parametri, 6/9 anni)
+    "EURJPY": ["vol"],           # EURJPY VOL   (miglior Total R storico, 7/9 anni)
+    "CADJPY": ["vol"],           # CADJPY VOL   (PF 1.40 storico, 6/9 anni)
 }
 SYMBOLS: list[str] = list(VALIDATED_STRATEGIES)
 PAIR: str = SYMBOLS[0]   # default per gli script di ottimizzazione (--symbol)
@@ -79,10 +95,15 @@ TIMEFRAME: str = "H1"      # (legacy) usato solo dalla strategia di esempio ema_
 BARS: int = 500            # quante candele scaricare per i calcoli
 
 # Timeframe su cui il monitoraggio (--watch) fa scattare una nuova analisi.
-# La logica dei segnali NON cambia (resta ingressi H1 + filtro H4 come l'EA):
-# questo controlla solo OGNI QUANTO si ri-valuta. "H4" = 4 volte al giorno,
-# "H1" = a ogni ora. Override da riga di comando con --watch-tf.
-WATCH_TIMEFRAME: str = "H4"
+# DEVE restare "H1": gli ingressi sono su barra H1 (filtro regime su H4) e i
+# trigger sono EVENTI di una singola barra (trend: close incrocia la EMA20
+# proprio su quella barra; vol: rottura Donchian su quella barra). Con "H4" il
+# bot rivaluta solo 1 barra H1 su 4 e i segnali nati sulle altre 3 vengono
+# persi per sempre: misurato su 8 anni di storico (2026-08-01), 168 -> 61
+# trade su NZDUSD trend e 165 -> 52 su USDJPY vol, con l'edge di USDJPY che
+# crolla da +30.0 R a +2.0 R. Non e' solo "meno trade": e' un'altra strategia,
+# non quella validata. Override da riga di comando con --watch-tf.
+WATCH_TIMEFRAME: str = "H1"
 
 # --- Gestione del rischio ----------------------------------------------------
 RISK_PCT: float = 0.01     # 1% del saldo per operazione
